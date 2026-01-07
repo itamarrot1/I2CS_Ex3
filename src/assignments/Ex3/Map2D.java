@@ -83,6 +83,7 @@ public interface Map2D {
 	 */
 	boolean isInside(Pixel2D p);
 
+
 	/**
 	 * @return true iff this map should be addressed as a cyclic one.
 	 */
@@ -104,6 +105,9 @@ public interface Map2D {
 	 * @return the number of "filled" pixels.
 	 */
 	public int fill(Pixel2D p, int new_v);
+
+
+
 
 	/**
 	 * Compute the shortest valid path between p1 and p2.

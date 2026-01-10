@@ -1,175 +1,204 @@
 package assignments.Ex3;
-import exe.ex3.game.Game;
-import exe.ex3.game.GhostCL;
-import exe.ex3.game.PacManAlgo;
-import exe.ex3.game.PacmanGame;
 
+import exe.ex3.game.*;
 import java.awt.*;
+import java.util.*;
 
+public class Ex3Algo implements PacManAlgo {
 
-/**
- * This is the major algorithmic class for Ex3 - the PacMan game:
- *
- * This code is a very simple example (random-walk algorithm).
- * Your task is to implement (here) your PacMan algorithm.
- */
-public class Ex3Algo implements PacManAlgo{
-	private int _count;
-    private int _blue, _pink, _black, _green;
-	public Ex3Algo() {
-        _count=0;
+    private int step = 0;
+    private int BLUE, PINK, GREEN;
+    private int lastDir = -1;
+
+    @Override
+    public String getInfo() {
+        return "ID: " + GameInfo.MY_ID + " | Smart Survival AI (DEBUG)";
     }
-
-
-	@Override
-	/**
-	 *  Add a short description for the algorithm as a String.
-	 */
-	public String getInfo() {
-		String info =
-                "ID: " + GameInfo.MY_ID +
-                        ", Scenario: " + GameInfo.CASE_SCENARIO +
-                        ", Cyclic: " + GameInfo.CYCLIC_MODE +
-                        ", DT : " + GameInfo.DT +
-                        ", RESOLUTION_NORM : " + GameInfo.RESOLUTION_NORM +
-                        ", RANDOM_SEED :  " + GameInfo.RANDOM_SEED +
-                        ", ALGO :  " + GameInfo.ALGO ;
-        return info;
-	}
-
 
     @Override
     public int move(PacmanGame game) {
-        if(_count==0 || _count==300) {
-            int code = 0;
-            int[][] board = game.getGame(0);
-            printBoard(board);
-             _blue = Game.getIntColor(Color.BLUE, code);
-             _pink = Game.getIntColor(Color.PINK, code);
-             _black = Game.getIntColor(Color.BLACK, code);
-             _green = Game.getIntColor(Color.GREEN, code);
-            System.out.println("Blue=" + _blue + ", Pink=" + _pink + ", Black=" + _black + ", Green=" + _green);
-            String pos = game.getPos(code).toString();
-            System.out.println("Pacman coordinate: "+pos);
-            GhostCL[] ghosts = game.getGhosts(code);
-            printGhosts(ghosts);
+
+        int pac = 0;
+        int[][] board = game.getGame(pac);
+        Map map = new Map(board);
+        map.setCyclic(GameInfo.CYCLIC_MODE);
+
+        Pixel2D me = new Index2D(game.getPos(pac));
+
+        if (step == 0) {
+            BLUE  = Game.getIntColor(Color.BLUE, 0);
+            PINK  = Game.getIntColor(Color.PINK, 0);
+            GREEN = Game.getIntColor(Color.GREEN, 0);
         }
 
-        int code = 0;
-        int[][] board = game.getGame(code);
+        GhostCL[] ghosts = game.getGhosts(pac);
+        double[][] danger = buildDangerMap(map, board, ghosts);
 
-        Map myMap = new Map(board);
-        myMap.setCyclic(GameInfo.CYCLIC_MODE);
+        System.out.println("Step " + step + " | Pacman at " + me.getX() + "," + me.getY());
 
-        Pixel2D current = new Index2D(game.getPos(code));
-        Map2D dist = myMap.allDistance(current, _blue);
+        int bestDir = Game.UP;
+        double bestScore = Double.NEGATIVE_INFINITY;
 
-        double ghostDist = getClosestGhostDistance(game, dist);
-        if (ghostDist < 5.0) { // אם רוח קרובה מדי
-            System.out.println("--- סכנה! רוח במרחק: " + ghostDist + " ---");
-            // כאן בעתיד נחזיר פונקציית escape. כרגע נחזור לרנדומלי
-            _count++;
-            return randomDir();
-        }
+        for (int dir : new int[]{Game.UP, Game.DOWN, Game.LEFT, Game.RIGHT}) {
+            Pixel2D next = neighbor(me, dir, map);
+            if (!isLegal(next, board)) continue;
 
-        Pixel2D target = findClosestGreen(board, dist, _green);
+            double score = evaluate(next, map, board, danger);
 
-        if (target != null) {
-            Pixel2D[] path = myMap.shortestPath(current, target, _blue);
-            if (path != null && path.length > 1) {
-                Pixel2D nextStep = path[1];
-                _count++;
-                return getDirFromPixels(current, nextStep, myMap);
+            Map2D d2 = map.allDistance(next, BLUE);
+            score += 0.6 * futureScore(d2, board, danger);
+
+            if (dir == lastDir) score += 200;
+
+            System.out.println("  Dir " + dir + " -> next " + next.getX() + "," + next.getY() +
+                    " | score=" + score);
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestDir = dir;
             }
         }
 
-        // אם הגענו לכאן, סימן שלא נמצא מסלול חכם
-        _count++;
-        int dir = randomDir();
-        return dir;
+        System.out.println("Chosen dir: " + bestDir + " | Score: " + bestScore);
+        lastDir = bestDir;
+        step++;
+        return bestDir;
     }
 
+    private double[][] buildDangerMap(Map map, int[][] board, GhostCL[] ghosts) {
+        int w = board.length, h = board[0].length;
+        double[][] danger = new double[w][h];
+        for (double[] r : danger) Arrays.fill(r, Double.POSITIVE_INFINITY);
 
-	private static void printBoard(int[][] b) {
-		for(int y =0;y<b[0].length;y++){
-			for(int x =0;x<b.length;x++){
-				int v = b[x][y];
-				System.out.print(v+"\t");
-			}
-			System.out.println();
-		}
-	}
+        for (int i = 0; i < ghosts.length; i++) {
+            if (ghosts[i].remainTimeAsEatable(i) > 2) continue;
 
+            Pixel2D gp = new Index2D(ghosts[i].getPos(i));
+            Map2D dist = map.allDistance(gp, BLUE);
 
-	private static void printGhosts(GhostCL[] gs) {
-		for(int i=0;i<gs.length;i++){
-			GhostCL g = gs[i];
-			System.out.println(i+") status: "+g.getStatus()+",  type: "+g.getType()+",  pos: "+g.getPos(0)+",  time: "+g.remainTimeAsEatable(0));
-		}
-	}
-
-
-	private static int randomDir() {
-		int[] dirs = {Game.UP, Game.LEFT, Game.DOWN, Game.RIGHT};
-		int ind = (int)(Math.random()*dirs.length);
-		return dirs[ind];
-	}
-
-    private Pixel2D findClosestGreen(int[][] board, Map2D distMap, int targetColor) {
-        Pixel2D target = null;
-        int minDistance = Integer.MAX_VALUE;
-
-        for (int x = 0; x < board.length; x++) {
-            for (int y = 0; y < board[0].length; y++) {
-                if (board[x][y] == targetColor) {
-                    int d = distMap.getPixel(x, y);
-                    if (d != -1 && d < minDistance) {
-                        minDistance = d;
-                        target = new Index2D(x, y);
-                    }
+            for (int x = 0; x < w; x++)
+                for (int y = 0; y < h; y++) {
+                    double d = dist.getPixel(x, y);
+                    if (d != -1)
+                        danger[x][y] = Math.min(danger[x][y], d);
                 }
-            }
+            System.out.println("  Ghost " + i + " at " + gp.getX() + "," + gp.getY());
         }
-        return target;
+        return danger;
     }
 
-    private double getClosestGhostDistance(PacmanGame game, Map2D dist) {
-        GhostCL[] ghosts = game.getGhosts(0);
-        double minSafeDist = Double.MAX_VALUE;
+    private double evaluate(Pixel2D pos, Map map, int[][] board, double[][] danger) {
+        double score = 0;
+        double ghostDist = danger[pos.getX()][pos.getY()];
 
-        for (GhostCL ghost : ghosts) {
-            // אנחנו בודקים רק רוחות שהן לא ורודות (כלומר מסוכנות)
-            if (ghost.getType() != _pink) {
-                Pixel2D ghostPos = new Index2D(ghost.getPos(0));
+        // סכנה מיידית – לברוח תמיד
+        if (ghostDist <= 1) return -1e9;
 
-                // אנחנו שואלים את המפה: "כמה צעדים יש מהפקמן לרוח הזו?"
-                double d = dist.getPixel(ghostPos);
+        // סכנה קרובה – לתת עדיפות לבריחה
+        if (ghostDist <= 3) score -= 5000 / ghostDist;
 
-                // אם המרחק חוקי (לא קיר) והוא קטן ממה שמצאנו עד כה
-                if (d != -1 && d < minSafeDist) {
-                    minSafeDist = d;
+        // חשב שטח בטוח סביב המיקום
+        int safeSpace = countSafeSpace(pos, map, board, danger, 12);
+        if (safeSpace < 4) return -1e8;
+        score += safeSpace * 800;
+
+        // חיפוש נקודות הורודות (PINK)
+        Map2D dist = map.allDistance(pos, BLUE);
+        Pixel2D pink = closest(board, dist, PINK);
+        if (pink != null) {
+            double s = 400000 / (dist.getPixel(pink.getX(), pink.getY()) + 1);
+            score += s;
+        }
+
+        // חיפוש נקודות ירוקות (GREEN) רק אם יש סכנה מתונה או שהן קרובות
+        Pixel2D green = closest(board, dist, GREEN);
+        if (green != null) {
+            int dGreen = dist.getPixel(green.getX(), green.getY());
+            // רק אם הרוח לא קרובה מיד (ghostDist >= 2) או שהנקודה הירוקה קרובה מאוד
+            if (ghostDist < 2 && dGreen <= 3 || ghostDist >= 2) {
+                double s = 700000 / (dGreen + 1);
+                score += s;
+            }
+        }
+
+        return score;
+    }
+
+
+    private double futureScore(Map2D dist, int[][] board, double[][] danger) {
+        double best = 0;
+        for (int i = 0; i < board.length; i++)
+            for (int j = 0; j < board[0].length; j++)
+                if (board[i][j] == PINK && danger[i][j] > dist.getPixel(i, j) + 2)
+                    best = Math.max(best, 200000 / (dist.getPixel(i, j) + 1));
+        return best;
+    }
+
+    private int countSafeSpace(Pixel2D start, Map map, int[][] board,
+                               double[][] danger, int limit) {
+        Queue<Pixel2D> q = new LinkedList<>();
+        java.util.Map<String, Integer> dist = new HashMap<>();
+
+        q.add(start);
+        dist.put(key(start), 0);
+        int count = 0;
+
+        while (!q.isEmpty() && count < limit) {
+            Pixel2D cur = q.poll();
+            int d = dist.get(key(cur));
+            count++;
+
+            for (int dir : new int[]{0,1,2,3}) {
+                Pixel2D n = neighbor(cur, dir, map);
+                String k = key(n);
+
+                if (!isLegal(n, board) || dist.containsKey(k)) continue;
+                if (danger[n.getX()][n.getY()] <= d + 2) continue;
+
+                dist.put(k, d + 1);
+                q.add(n);
+            }
+        }
+        System.out.println("  Safe space from " + start.getX() + "," + start.getY() + " = " + count);
+        return count;
+    }
+
+    private Pixel2D closest(int[][] board, Map2D dist, int color) {
+        Pixel2D best = null;
+        double min = Double.MAX_VALUE;
+        for (int i = 0; i < board.length; i++)
+            for (int j = 0; j < board[0].length; j++)
+                if (board[i][j] == color && dist.getPixel(i, j) != -1 &&
+                        dist.getPixel(i, j) < min) {
+                    min = dist.getPixel(i, j);
+                    best = new Index2D(i, j);
                 }
-            }
-        }
-        return minSafeDist;
+        return best;
     }
 
+    private Pixel2D neighbor(Pixel2D p, int dir, Map map) {
+        int x = p.getX(), y = p.getY();
+        if (dir == Game.UP) y++;
+        if (dir == Game.DOWN) y--;
+        if (dir == Game.LEFT) x--;
+        if (dir == Game.RIGHT) x++;
 
-    private int getDirFromPixels(Pixel2D src, Pixel2D dest, Map map) {
-        int dx = dest.getX() - src.getX();
-        int dy = dest.getY() - src.getY();
-         System.out.println("From: " + src + " To: " + dest + " dx: " + dx + " dy: " + dy);
-        if (dx > 1) return Game.LEFT;
-        if (dx < -1) return Game.RIGHT;
-        if (dy > 1) return Game.UP;
-        if (dy < -1) return Game.DOWN;
+        int w = map.getMap().length, h = map.getMap()[0].length;
+        return new Index2D((x + w) % w, (y + h) % h);
+    }
 
-        // מקרה רגיל (ללא קפיצה)
-        if (dx == 1) return Game.RIGHT;
-        if (dx == -1) return Game.LEFT;
-        if (dy == -1) return Game.DOWN;
-        if (dy == 1) return Game.UP;
+    private boolean isLegal(Pixel2D p, int[][] board) {
+        return board[p.getX()][p.getY()] != BLUE && !isGhostHouse(p, board);
+    }
 
-        return Game.UP; // ברירת מחדל
+    private boolean isGhostHouse(Pixel2D p, int[][] board) {
+        int mx = board.length / 2, my = board[0].length / 2;
+        return Math.abs(p.getX() - mx) < 3 &&
+                Math.abs(p.getY() - my) < 3 &&
+                board[p.getX()][p.getY()] == 0;
+    }
+
+    private String key(Pixel2D p) {
+        return p.getX() + "," + p.getY();
     }
 }

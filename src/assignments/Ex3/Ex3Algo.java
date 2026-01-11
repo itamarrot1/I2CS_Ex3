@@ -36,8 +36,19 @@ public class Ex3Algo implements PacManAlgo {
 
         System.out.println("Step " + step + " | Pacman at " + me.getX() + "," + me.getY());
 
-        int bestDir = Game.UP;
+        int bestDir = -1; // התחלה ללא כיוון
         double bestScore = Double.NEGATIVE_INFINITY;
+
+        for (int dir : new int[]{Game.UP, Game.DOWN, Game.LEFT, Game.RIGHT}) {
+            Pixel2D next = neighbor(me, dir, map);
+            if (!isLegal(next, board)) continue;
+
+            // אם זה הכיוון החוקי הראשון, נשמור אותו כברירת מחדל
+            if (bestDir == -1) bestDir = dir;
+
+            double score = evaluate(next, map, board, danger);
+            // ... שאר הלוגיקה
+        }
 
         for (int dir : new int[]{Game.UP, Game.DOWN, Game.LEFT, Game.RIGHT}) {
             Pixel2D next = neighbor(me, dir, map);
@@ -89,41 +100,44 @@ public class Ex3Algo implements PacManAlgo {
 
     private double evaluate(Pixel2D pos, Map map, int[][] board, double[][] danger) {
         double score = 0;
-        double ghostDist = danger[pos.getX()][pos.getY()];
+        int x = pos.getX();
+        int y = pos.getY();
+        double ghostDist = danger[x][y];
 
-        // סכנה מיידית – לברוח תמיד
-        if (ghostDist <= 1) return -1e9;
+        // 1. הישרדות מעל הכל - אם הרוח במרחק נגיעה, אל תלך לשם
+        if (ghostDist <= 1) return -1e10;
 
-        // סכנה קרובה – לתת עדיפות לבריחה
-        if (ghostDist <= 3) score -= 5000 / ghostDist;
-
-        // חשב שטח בטוח סביב המיקום
+        // 2. בדיקת שטח בטוח - שלא ניכנס לסימטה ללא מוצא
+        // בתוך evaluate
         int safeSpace = countSafeSpace(pos, map, board, danger, 12);
-        if (safeSpace < 4) return -1e8;
-        score += safeSpace * 800;
+// במקום לפסול, פשוט תוריד ציון. ככה אם אין ברירה, הוא יכנס למבוי סתום כדי לאכול נקודה.
+        score += safeSpace * 1000;
 
-        // חיפוש נקודות הורודות (PINK)
-        Map2D dist = map.allDistance(pos, BLUE);
-        Pixel2D pink = closest(board, dist, PINK);
+        // 3. המטרה: הנקודה הוורודה הקרובה ביותר
+        Map2D distMap = map.allDistance(pos, BLUE);
+        Pixel2D pink = closest(board, distMap, PINK);
+
         if (pink != null) {
-            double s = 400000 / (dist.getPixel(pink.getX(), pink.getY()) + 1);
-            score += s;
+            double dToPink = distMap.getPixel(pink.getX(), pink.getY());
+            // ככל שהמרחק קטן יותר, הציון גבוה יותר משמעותית
+            score += 100000.0 / (dToPink + 1);
+        } else {
+            // אם אין נקודות וורודות - ניצחנו! (או שמחפשים ירוק לקינוח)
+            return 1e11;
         }
 
-        // חיפוש נקודות ירוקות (GREEN) רק אם יש סכנה מתונה או שהן קרובות
-        Pixel2D green = closest(board, dist, GREEN);
-        if (green != null) {
-            int dGreen = dist.getPixel(green.getX(), green.getY());
-            // רק אם הרוח לא קרובה מיד (ghostDist >= 2) או שהנקודה הירוקה קרובה מאוד
-            if (ghostDist < 2 && dGreen <= 3 || ghostDist >= 2) {
-                double s = 700000 / (dGreen + 1);
-                score += s;
-            }
+        // 4. בונוס על הדרך: אם יש נקודה וורודה ממש במיקום הזה
+        if (board[x][y] == PINK) {
+            score += 50000;
+        }
+
+        // 5. עונש קטן על קרבה לרוחות (גם אם הן לא בטווח סכנה מיידי)
+        if (ghostDist < 5) {
+            score -= (10 - ghostDist) * 2000;
         }
 
         return score;
     }
-
 
     private double futureScore(Map2D dist, int[][] board, double[][] danger) {
         double best = 0;

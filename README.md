@@ -8,7 +8,11 @@ This project presents a dual-layered approach to the classic Pacman game, develo
 See the AI in action! Below is a demonstration of the `Ex3Algo` successfully navigating the lecturer's environment and winning the game.
 
 <p align="center">
-  <img src="demo/game_victory.gif" alt="Game Victory Demo" width="700">
+  
+
+https://github.com/user-attachments/assets/867a357b-bf54-4162-a6ac-c908d7cff755
+
+
 </p>
 
 *If the animation doesn't appear, you can find the source video in the `/demo` folder.*

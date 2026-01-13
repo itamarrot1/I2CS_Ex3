@@ -271,7 +271,6 @@ public class Map implements Map2D {
         return ans;
     }
 
-
     @Override
     public boolean isCyclic() {
         boolean ans = false;

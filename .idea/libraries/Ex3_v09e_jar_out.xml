@@ -2,8 +2,11 @@
   <library name="Ex3_v09e.jar-out">
     <CLASSES>
       <root url="jar://$PROJECT_DIR$/lib/Ex3_v09e.jar-out.jar!/" />
+      <root url="file://$PROJECT_DIR$/resources" />
     </CLASSES>
     <JAVADOC />
-    <SOURCES />
+    <SOURCES>
+      <root url="file://$PROJECT_DIR$/src" />
+    </SOURCES>
   </library>
 </component>

@@ -5,22 +5,18 @@ import assignments.Ex3.Map2D;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 public class Ex3MainCustom {
     public static void main(String[] args) throws InterruptedException {
         String mapFile = "src/mygame/map1.txt";
-        // בתוך ה-Main, לפני יצירת המפה:
-        int[][] rawMap = MapLoader.loadMap(mapFile); // המערך מהקובץ (שורות/עמודות)
+        int[][] rawMap = MapLoader.loadMap(mapFile);
         List<Ghost> ghostList = new ArrayList<>();
 
 
 
         Map2D mapObj = new assignments.Ex3.Map(rawMap);
         Board board = new Board(rawMap);
-        board.debugPrint();
 
-        // בחר תא התחלה חוקי
         int startRow = 1;
         int startCol = 1;
         if (mapObj.getPixel(startCol, startRow) == 1) {
@@ -38,14 +34,15 @@ public class Ex3MainCustom {
 
         Pacman pacman = new Pacman(startRow, startCol);
 
-        // מיקום התחלתי של הרוחות (לא נוגעות לפקמן אוטומטי)
 
 
         Ghost ghost1 = new Ghost(5, 5, Color.RED,"מבוא לחישוב" );
         Ghost ghost2 = new Ghost(2, 2, Color.PINK,"אינפי");
+        Ghost ghost3 = new Ghost(2, 2, Color.cyan,"לוגיקה");
 
         ghostList.add(ghost1);
         ghostList.add(ghost2);
+        ghostList.add(ghost3);
 
         StdDraw.setCanvasSize(800, 800);
         StdDraw.setXscale(0, 1);
@@ -60,7 +57,7 @@ public class Ex3MainCustom {
                 StdDraw.setFont(font);
                 StdDraw.text(0.5, 0.5, "YOU WON");
                 StdDraw.show();
-                Thread.sleep(3000); // מחכה 3 שניות לפני סגירה
+                Thread.sleep(3000);
                 System.exit(0);
             }
             for (Ghost g : ghostList) {

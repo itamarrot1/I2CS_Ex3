@@ -15,7 +15,6 @@ https://github.com/user-attachments/assets/867a357b-bf54-4162-a6ac-c908d7cff755
 
 </p>
 
-*If the animation doesn't appear, you can find the source video in the `/demo` folder.*
 
 ---
 
